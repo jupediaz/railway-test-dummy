@@ -1,19 +1,45 @@
-# Simple test Dockerfile
-FROM nginx:alpine
+# Simple test Dockerfile - Node.js version for better Railway compatibility
+FROM node:18-alpine
 
-# Copy our simple HTML file
-COPY index.html /usr/share/nginx/html/
+WORKDIR /app
 
-# Create nginx config template that listens on $PORT
-RUN echo 'server { listen $PORT; location / { root /usr/share/nginx/html; index index.html; try_files $uri $uri/ =404; } }' > /etc/nginx/conf.d/default.conf.template
+# Create a simple Express server
+RUN echo 'const express = require("express"); \
+const path = require("path"); \
+const app = express(); \
+const port = process.env.PORT || 3000; \
+\
+app.use(express.static("public")); \
+\
+app.get("/", (req, res) => { \
+  res.sendFile(path.join(__dirname, "public", "index.html")); \
+}); \
+\
+app.get("/health", (req, res) => { \
+  res.json({ status: "healthy" }); \
+}); \
+\
+app.listen(port, "0.0.0.0", () => { \
+  console.log(`Server running on port ${port}`); \
+});' > server.js
 
-# Start script that substitutes PORT and starts nginx
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Starting with PORT: $PORT"' >> /start.sh && \
-    echo 'envsubst \$PORT < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf' >> /start.sh && \
-    echo 'echo "Generated nginx config:"' >> /start.sh && \
-    echo 'cat /etc/nginx/conf.d/default.conf' >> /start.sh && \
-    echo 'nginx -g "daemon off;"' >> /start.sh && \
-    chmod +x /start.sh
+# Create package.json
+RUN echo '{ \
+  "name": "railway-test", \
+  "version": "1.0.0", \
+  "dependencies": { \
+    "express": "^4.18.0" \
+  }, \
+  "scripts": { \
+    "start": "node server.js" \
+  } \
+}' > package.json
 
-CMD ["/start.sh"]
+# Create public directory and copy HTML
+RUN mkdir public
+COPY index.html public/
+
+# Install dependencies
+RUN npm install
+
+CMD ["npm", "start"]
