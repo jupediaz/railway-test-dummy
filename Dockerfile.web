@@ -1,0 +1,20 @@
+# Web service - Next.js app
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package.json and .next build
+COPY web/package.json ./
+COPY web/.next .next
+COPY web/next.config.js ./
+
+# Install only production dependencies
+RUN npm install --only=production
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs --ingroup nodejs && \
+    chown -R nextjs:nodejs /app
+USER nextjs
+
+CMD ["sh", "-c", "npm start -- -p ${PORT:-3000}"]
